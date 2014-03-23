@@ -1,0 +1,37 @@
+#include "types.h"
+#include "stat.h"
+#include "user.h"
+#include "param.h"
+
+int
+main(int argc, char *argv[])
+{
+  char path_to_add[INPUT_BUF];
+  int i,j=0;
+  int pathnum = 0;
+  //char *paths[MAX_PATH_ENTRIES][INPUT_BUF];
+
+  if(argc <= 1){
+    printf(2, "error! must add paths to export\n");
+    exit();
+  }
+
+  else{
+      for(i = 0; argv[1][i] && pathnum<INPUT_BUF; i++){
+	  if (argv[1][i] != ':'){
+	      path_to_add[j] = argv[1][i];
+	      j++;
+	  }
+	  else {
+	      path_to_add[j] = 0;
+	      add_path(path_to_add);
+	      j = 0;
+	      pathnum++;
+	  }
+      }
+  }
+  exit();
+}
+
+
+
