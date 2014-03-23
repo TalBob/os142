@@ -272,30 +272,39 @@ consoleintr(int (*getc)(void))
 	}
 	else{
 	  if((hstryPos %  MAX_HISTORY_LENGTH) > 0){
+	      
+// 	      cprintf("e:%d\n",input.e);
+// 	      cprintf("rm:%d\n",input.rm);
+//               cprintf("w:%d\n",input.w);
 	      for(i=input.rm ; i>input.w; i--){
 		  consputc(BACKSPACE);
-		  input.rm--;
-		  input.e--;
-	      }	
+		  consputc(LEFTARROW);
+	      }
+	      input.e = input.w+1;
+	      input.rm = input.e;
 	      hstryPos--;
 	      for(i = input.w,j=0; j<(strlen(history[hstryPos])); i++,j++){
 		  input.buf[i] = history[hstryPos][j];
 	      }
-// 	      cprintf("buf:%s\n",input.buf);
-// 	      input.e = strlen(history[hstryPos]);
-// 	      //cprintf("e:%d\n",input.e);
-// // 		  cprintf("buf:%s\n",input.buf);
-// 	      input.rm = input.e;
-// 
-// // 		  cprintf("rm:%d\n",input.rm);
-// // 		  cprintf("w:%d\n",input.w);
-// 	      for(i = input.w; i<=input.rm; i++){
-// 		  consputc(input.buf[i]);
-// 	      }
-// 	      for(i = input.w; i<input.rm-1; i++){
-// 		  consputc(LEFTARROW);
-// 	      }
 	      
+// 	      cprintf("buf:%s\n",input.buf);
+	      j = strlen(history[hstryPos]);
+	      input.e += j;
+	      
+// 		  cprintf("buf:%s\n",input.buf);
+	      input.rm = input.e;
+
+	       //cprintf("e:%d\n",input.e);
+	       //cprintf("rm:%d\n",input.rm);
+	       //cprintf("w:%d\n",input.w);
+	     
+	      for(i = input.w; i< input.e; i++){
+		  consputc(input.buf[i]);
+	      }
+	       //cprintf("e:%d\n",input.e);
+	       //cprintf("rm:%d\n",input.rm);
+	       //cprintf("w:%d\n",input.w);
+	       
 	  }
 	      
 	    }
