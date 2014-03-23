@@ -248,7 +248,7 @@ wait(void)
 }
 
 int wait2(int *wtime, int *rtime, int *iotime){
-    
+    return 0;
 }
 
 void
