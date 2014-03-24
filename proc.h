@@ -74,6 +74,7 @@ struct proc {
   int etime;		       // End Time
   int iotime;	               // Total waiting for I/O
   int rtime;	               // Running time
+  int quanta;		       // cpu time process has used
   
 //------------PATCH------------------------------------------//  
 };
