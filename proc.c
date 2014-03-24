@@ -308,7 +308,6 @@ void updateRunIOTime(){
 	}
 	else if((p != 0) && (p->state == RUNNING)){
 	    p->rtime++;
-	    p->quanta++;
 	}
     }
     release(&ptable.lock);
@@ -398,7 +397,6 @@ yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
   proc->state = RUNNABLE;
-  proc->quanta = 0;
   sched();
   release(&ptable.lock);
 }
@@ -459,7 +457,6 @@ sleep(void *chan, struct spinlock *lk)
   // Go to sleep.
   proc->chan = chan;
   proc->state = SLEEPING;
-  proc->quanta = 0;
   sched();
 
   // Tidy up.
