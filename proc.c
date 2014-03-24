@@ -308,6 +308,7 @@ void updateRunIOTime(){
 	}
 	else if((p != 0) && (p->state == RUNNING)){
 	    p->rtime++;
+	    p->quanta++;
 	}
     }
     release(&ptable.lock);
