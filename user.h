@@ -24,6 +24,7 @@ int sleep(int);
 int uptime(void);
 //----------------------Patch-------------------//
 int add_path(char*);
+int wait2(int*, int*, int*);
 //----------------------Patch-------------------//
 
 // ulib.c

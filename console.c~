@@ -249,64 +249,110 @@ consoleintr(int (*getc)(void))
       }
       break;
     case UPARROW:
-	if(numOentries >=  MAX_HISTORY_LENGTH){
-	  if(!((hstryPos %  MAX_HISTORY_LENGTH) ==  (hstryNext+1 %  MAX_HISTORY_LENGTH))){
-	      for(i=input.w ; i<input.rm; i++){
-	      consputc(BACKSPACE);
-	      input.e--;
-	      }
-	      
-	      hstryPos--;
-	      for(i = input.w; i<input.rm; i++){
-		input.buf[i] = history[hstryPos][i];
-	      }
-	      cprintf("buf:%s\n",input.buf);
-	      input.e += strlen(history[hstryPos]);
-	      input.rm = input.e;
-	      for(i = input.w; i<input.rm; i++){
-		  consputc(input.buf[i]);
-	      }
-	      
-	    
+	if(numOentries >=  MAX_HISTORY_LENGTH){ 
+	  if(input.w < input.rm){
+	    for(i=input.rm ; i>input.w; i--){
+		consputc(BACKSPACE);
+	    }
+	    input.e = input.w;
+	    input.rm = input.e;
 	  }
+	  hstryPos--;
+	  if (hstryPos < 0){ // if hstrypos is under zero
+	    hstryPos = MAX_HISTORY_LENGTH -1;
+	  }
+	  for(i = input.w,j=0; j<(strlen(history[hstryPos %  MAX_HISTORY_LENGTH])); i++,j++){
+	      input.buf[i] = history[hstryPos %  MAX_HISTORY_LENGTH][j];
+	  }
+	  
+	  j = strlen(history[hstryPos %  MAX_HISTORY_LENGTH]);
+	  input.e += j;
+	  
+	  input.rm = input.e;
+	  
+	  for(i = input.w; i< input.e; i++){
+	      consputc(input.buf[i]);
+	  }		    
 	}
 	else{
 	  if((hstryPos %  MAX_HISTORY_LENGTH) > 0){
+	    if(input.w < input.rm){
 	      for(i=input.rm ; i>input.w; i--){
 		  consputc(BACKSPACE);
-		  input.rm--;
-		  input.e--;
-	      }	
-	      hstryPos--;
-	      for(i = input.w,j=0; j<(strlen(history[hstryPos])); i++,j++){
-		  input.buf[i] = history[hstryPos][j];
 	      }
-	      cprintf("buf:%s\n",input.buf);
-// 	      input.e = strlen(history[hstryPos]);
-// 	      //cprintf("e:%d\n",input.e);
-// // 		  cprintf("buf:%s\n",input.buf);
-// 	      input.rm = input.e;
-// 
-// // 		  cprintf("rm:%d\n",input.rm);
-// // 		  cprintf("w:%d\n",input.w);
-// 	      for(i = input.w; i<=input.rm; i++){
-// 		  consputc(input.buf[i]);
-// 	      }
-// 	      for(i = input.w; i<input.rm-1; i++){
-// 		  consputc(LEFTARROW);
-// 	      }
-	      
-	  }
-	      
+	      input.e = input.w;
+	      input.rm = input.e;
 	    }
+	    hstryPos--;
+	    for(i = input.w,j=0; j<(strlen(history[hstryPos %  MAX_HISTORY_LENGTH])); i++,j++){
+		input.buf[i] = history[hstryPos %  MAX_HISTORY_LENGTH][j];
+	    }
+	    
+
+	    j = strlen(history[hstryPos %  MAX_HISTORY_LENGTH]);
+	    input.e += j;
+	    
+	    input.rm = input.e;
+
+	    
+	    for(i = input.w; i< input.e; i++){
+		consputc(input.buf[i]);
+	    }
+	  }
+	}
 	break;
 	
     case DOWNARROW:
-	if(hstryPos<=hstryNext){
-	    if(numOentries >  MAX_HISTORY_LENGTH){
-	      input.e++;
-	      consputc(RIGHTARROW);
+	if(numOentries >=  MAX_HISTORY_LENGTH){
+	    if(input.w < input.rm){
+	      for(i=input.rm ; i>input.w; i--){
+		  consputc(BACKSPACE);
+	      }
+	      input.e = input.w;
+	      input.rm = input.e;
 	    }
+	    hstryPos++;
+	    if (hstryPos == MAX_HISTORY_LENGTH){
+	      hstryPos = 0;
+	    }
+	    for(i = input.w,j=0; j<(strlen(history[hstryPos %  MAX_HISTORY_LENGTH])); i++,j++){
+		input.buf[i] = history[hstryPos %  MAX_HISTORY_LENGTH][j];
+	    }
+	    
+	    j = strlen(history[hstryPos %  MAX_HISTORY_LENGTH]);
+	    input.e += j;
+	    
+	    input.rm = input.e;
+	    
+	    for(i = input.w; i< input.e; i++){
+		consputc(input.buf[i]);
+	    }
+	}
+	else{
+	  if((hstryPos %  MAX_HISTORY_LENGTH) < (hstryNext %  MAX_HISTORY_LENGTH)){
+	    if(input.w < input.rm){
+	      for(i=input.rm ; i>input.w; i--){
+		  consputc(BACKSPACE);
+	      }
+	      input.e = input.w;
+	      input.rm = input.e;
+	    }
+	    hstryPos++;
+	    for(i = input.w,j=0; j<(strlen(history[hstryPos %  MAX_HISTORY_LENGTH])); i++,j++){
+		input.buf[i] = history[hstryPos %  MAX_HISTORY_LENGTH][j];
+	    }
+	    
+
+	    j = strlen(history[hstryPos %  MAX_HISTORY_LENGTH]);
+	    input.e += j;
+	    
+	    input.rm = input.e;
+
+	    
+	    for(i = input.w; i< input.e; i++){
+		consputc(input.buf[i]);
+	    }
+	  }
 	}
 	break;
       
@@ -364,10 +410,13 @@ consoleintr(int (*getc)(void))
 	  }
 //  	  cprintf("command is:%s",command);
 	  //command[j-1] = '\n'; 
-	  strncpy(history[hstryNext],command,strlen(command));
-	  hstryNext = ((hstryNext+1) %  MAX_HISTORY_LENGTH);
-	  hstryPos = hstryNext;
-	  numOentries++;
+	  if (command[0] != '\0'){
+// 	    cprintf("command:'%s'\n",command);
+	    strncpy(history[hstryNext %  MAX_HISTORY_LENGTH],command,strlen(command));
+	    hstryNext = ((hstryNext+1) %  MAX_HISTORY_LENGTH);
+	    hstryPos = hstryNext;
+	    numOentries++;
+	  }
 	  //cprintf("next:%d\n",hstryNext);
 // 	  for (i=0; i < hstryNext; i++) {
 // 	      cprintf("history:%s\n",history[i]);

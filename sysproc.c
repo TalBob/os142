@@ -28,6 +28,21 @@ sys_add_path(void)
   return add_path(path);
 }
 
+int
+sys_wait2(void){
+  int *wtime, *rtime, *iotime;
+  if (argptr(0, (void*)&wtime, sizeof(wtime)) <0) {
+      return -1;
+  }
+  if (argptr(1, (void*)&rtime, sizeof(rtime)) <0 ) {
+      return -1;
+  }
+  if (argptr(2, (void*)&iotime, sizeof(iotime)) <0) {
+      return -1;
+  }
+  return wait2(wtime, rtime, iotime);
+}
+
 //------------------- PATCH -------------------//
 
 

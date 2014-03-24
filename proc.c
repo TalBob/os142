@@ -46,6 +46,13 @@ allocproc(void)
   return 0;
 
 found:
+//-----------------PATCH----------------TASK----//
+  p->rtime = 0;
+  p->iotime = 0;
+  p->etime = -1;
+  p->ctime = getCurrentTick();
+  
+//-----------------PATCH-----------------TASK---//
   p->state = EMBRYO;
   p->pid = nextpid++;
   release(&ptable.lock);
@@ -197,7 +204,7 @@ exit(void)
         wakeup1(initproc);
     }
   }
-
+  proc->etime = getCurrentTick();
   // Jump into the scheduler, never to return.
   proc->state = ZOMBIE;
   sched();
@@ -247,8 +254,62 @@ wait(void)
   }
 }
 
+//-------------------------- PATCH --------------------//
 int wait2(int *wtime, int *rtime, int *iotime){
-    return 0;
+  //Tal is not a poop-head! He's just silly 
+  struct proc *p;
+  int havekids, pid;
+
+  acquire(&ptable.lock);
+  for(;;){
+    // Scan through table looking for zombie children.
+    havekids = 0;
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->parent != proc)
+        continue;
+      havekids = 1;
+      if(p->state == ZOMBIE){
+        // Found one.
+        *wtime = p->etime - p->ctime - p->rtime - p->iotime;
+	*rtime = p->rtime;
+	*iotime = p->iotime;
+        pid = p->pid;
+        kfree(p->kstack);
+        p->kstack = 0;
+        freevm(p->pgdir);
+        p->state = UNUSED;
+        p->pid = 0;
+        p->parent = 0;
+        p->name[0] = 0;
+        p->killed = 0;
+        release(&ptable.lock);
+        return pid;
+      }
+    }
+
+    // No point waiting if we don't have any children.
+    if(!havekids || proc->killed){
+      release(&ptable.lock);
+      return -1;
+    }
+
+    // Wait for children to exit.  (See wakeup1 call in proc_exit.)
+    sleep(proc, &ptable.lock);  //DOC: wait-sleep
+  }
+}
+//-------------------------- PATCH --------------------//
+void updateRunIOTime(){
+    struct proc *p;
+    acquire(&ptable.lock);
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+	if((p != 0) && (p->state == SLEEPING)){
+	    p->iotime++;
+	}
+	else if((p != 0) && (p->state == RUNNING)){
+	    p->rtime++;
+	}
+    }
+    release(&ptable.lock);
 }
 
 void
@@ -338,6 +399,17 @@ yield(void)
   sched();
   release(&ptable.lock);
 }
+
+//-------------- PATCH ------------TASK--------//
+int getCurrentTick(void){
+    uint currentTick;
+    acquire(&tickslock);
+    currentTick = ticks;
+    release(&tickslock);
+    return currentTick;
+}
+
+//-------------- PATCH --------------TASK------//
 
 // A fork child's very first scheduling by scheduler()
 // will swtch here.  "Return" to user space.

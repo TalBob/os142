@@ -29,6 +29,5 @@ SYSCALL(getpid)
 SYSCALL(sbrk)
 SYSCALL(sleep)
 SYSCALL(uptime)
-//-----------------------Patch-----------------------//
 SYSCALL(add_path)
-//-----------------------Patch-----------------------//
+SYSCALL(wait2)

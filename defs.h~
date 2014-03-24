@@ -28,8 +28,9 @@ void            panic(char*) __attribute__((noreturn));
 // exec.c
 int             exec(char*, char**);
 //--------------------- PATCH ---------------------------------//
-extern char PATH[MAX_PATH_ENTRIES][INPUT_BUF] ;
-extern int lastPath;
+extern 	char 	PATH[MAX_PATH_ENTRIES][INPUT_BUF];
+extern 	int 	lastPath;
+int 		add_path(char* path);
 //--------------------- PATCH ---------------------------------//
 // file.c
 struct file*    filealloc(void);
@@ -124,6 +125,11 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
+//--------------------PATCH---TASK 2-----------//
+int 		wait2(int*, int*, int*);
+int 		getCurrentTick(void);
+void		updateIOTime();
+//--------------------PATCH---TASK 2-----------//
 
 // swtch.S
 void            swtch(struct context**, struct context*);

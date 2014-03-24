@@ -14,7 +14,7 @@ int add_path(char* path){
     exit();
   }
   strncpy(PATH[lastPath], path, strlen(path)+1);
-  cprintf("path added %s\n", PATH[lastPath]);
+  cprintf("path added '%s'\n", PATH[lastPath]);
   lastPath++;
   return 0;
 }
@@ -26,6 +26,22 @@ sys_add_path(void)
   if(argstr(0, &path) < 0)
     return -1;
   return add_path(path);
+}
+
+int
+sys_wait2(void)
+{
+  int *wtime, *rtime, *iotime;
+  if (argptr(0, (void*)&wtime, sizeof(wtime)) <0) {
+      return -1;
+  }
+  if (argptr(1, (void*)&rtime, sizeof(rtime)) <0 ) {
+      return -1;
+  }
+  if (argptr(2, (void*)&iotime, sizeof(iotime)) <0) {
+      return -1;
+  }
+  return wait2(wtime, rtime, iotime);
 }
 
 //------------------- PATCH -------------------//

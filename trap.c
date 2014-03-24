@@ -51,6 +51,9 @@ trap(struct trapframe *tf)
     if(cpu->id == 0){
       acquire(&tickslock);
       ticks++;
+      //--------------------PATCH---TASK 2-----------//
+      updateRunIOTime();
+      //--------------------PATCH---TASK 2-----------//
       wakeup(&ticks);
       release(&tickslock);
     }
