@@ -13,6 +13,49 @@ struct {
   struct proc proc[NPROC];
 } ptable;
 
+//-----------------PATCH----------------TASK-3.2---//
+
+struct queue{
+  int begin, end;
+  struct proc* processQueue[NPROC +1];
+}Que = {0, 0};
+
+// struct queue Que;
+// 
+// Que.begin = 0;
+// Que.end =0;
+
+int 
+addProc2Q(struct proc *p)
+{
+   //cprintf("que.begin is: %d\n", Que.begin);
+   //cprintf("que.end is: %d\n", Que.end);
+  if(Que.begin == ((Que.end - 1 + NPROC +1) % (NPROC +1))){
+      return -1;
+  }
+  else{
+      Que.processQueue[Que.begin] = p;
+      Que.begin = (Que.begin+1) % (NPROC+1);
+  }
+  return 0;
+};
+
+struct proc *getTopProc(void)
+{
+  struct proc *p;
+  //cprintf("get que.begin is: %d\n", Que.begin);
+  //cprintf("get que.end is: %d\n", Que.end);
+  if (Que.end != Que.begin){
+    p = Que.processQueue[Que.end];
+    Que.end = (Que.end+1) % (NPROC+1);
+  }
+  
+  return p;
+};
+
+
+//-----------------PATCH----------------TASK--3.2--//
+
 static struct proc *initproc;
 
 int nextpid = 1;
@@ -33,7 +76,7 @@ pinit(void)
 // state required to run in the kernel.
 // Otherwise return 0.
 static struct proc*
-allocproc(void)
+git (void)
 {
   struct proc *p;
   char *sp;
