@@ -13,6 +13,14 @@ struct {
   struct proc proc[NPROC];
 } ptable;
 
+//-----------------PATCH----------------TASK-3.2---//
+#if defined(FRR) || defined(FCFS)
+static struct proc* queue[NPROC];
+int procInIndex = 0;
+int procOutIndex = 0;
+#endif
+//-----------------PATCH----------------TASK--3.2--//
+
 static struct proc *initproc;
 
 int nextpid = 1;
@@ -33,7 +41,7 @@ pinit(void)
 // state required to run in the kernel.
 // Otherwise return 0.
 static struct proc*
-allocproc(void)
+allocproc (void)
 {
   struct proc *p;
   char *sp;
@@ -52,6 +60,7 @@ found:
   p->etime = -1;
   p->quanta = 0;
   p->ctime = getCurrentTick();
+  p->priority = 2;
   
 //-----------------PATCH-----------------TASK---//
   p->state = EMBRYO;
@@ -109,6 +118,12 @@ userinit(void)
   p->cwd = namei("/");
 
   p->state = RUNNABLE;
+  //-----------------PATCH----------------TASK--3.2--//
+  #if defined(FRR)||defined(FCFS)
+    queue[procInIndex % NPROC] = p;
+    procInIndex++;
+  #endif
+  //-----------------PATCH----------------TASK--3.2--//
 }
 
 // Grow current process's memory by n bytes.
@@ -165,6 +180,13 @@ fork(void)
  
   pid = np->pid;
   np->state = RUNNABLE;
+//-----------------PATCH----------------TASK--3.2--//
+  #if defined(FRR)||defined(FCFS)
+    queue[procInIndex % NPROC] = np;
+    procInIndex++;
+  #endif
+//-----------------PATCH----------------TASK--3.2--//
+      
   safestrcpy(np->name, proc->name, sizeof(proc->name));
   return pid;
 }
@@ -343,7 +365,67 @@ void
 scheduler(void)
 {
   struct proc *p;
+  
+  //-----------------PATCH----------------TASK-3.2---//
+  #if defined(FRR)||defined(FCFS)
+  //cprintf("IN is: %d\n",procInIndex);
+  //cprintf("Out is: %d\n",procOutIndex);
+  
+  for(;;){
+    
+    //////////////
+   // queue[procInIndex % NPROC] = initproc;
+    //procInIndex++;
+    /////////////
+    
+    // Enable interrupts on this processor.
+    sti();
 
+    // Loop over process table looking for process to run.
+    acquire(&ptable.lock);
+//     int i = procInIndex - procOutIndex;
+    
+    
+    //if (x++<3)
+    //  cprintf("in: %d\nout: %d\n",procInIndex,procOutIndex);
+    //else
+    //  panic("!");
+    if(procInIndex != procOutIndex){
+	
+// 	for(p = queue[procOutIndex % NPROC]; i >= 0; i--, p++){
+// 	  if(p->state != RUNNABLE){
+// 	    //cprintf("process: %s; NOT RUNNABLE\n",p->name);
+// 	    continue;
+// 	  }
+	  //cprintf("process: %s;\n",p->name);
+	  cprintf("out: %d \nin: %d", procOutIndex, [rpc);
+	  // Switch to chosen process.  It is the process's job
+	  // to release ptable.lock and then reacquire it
+	  // before jumping back to us.
+	  p = queue[procOutIndex % NPROC];
+	  proc = p;
+	  switchuvm(p);
+	  p->state = RUNNING;
+	  queue[procOutIndex % NPROC] = 0;
+	  procOutIndex++;
+	  swtch(&cpu->scheduler, proc->context);
+	  switchkvm();
+
+	  // Process is done running for now.
+	  // It should have changed its p->state before coming back.
+	  proc = 0;
+// 	}
+    }
+    else{
+	cprintf("out in else: %d \n", procOutIndex);
+	queue[procInIndex % NPROC] = initproc;
+    }
+    release(&ptable.lock);
+    
+  }
+  #endif
+  #if defined(DEFAULT)  
+  //-----------------PATCH----------------TASK-3.2---//
   for(;;){
     // Enable interrupts on this processor.
     sti();
@@ -351,9 +433,9 @@ scheduler(void)
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
+      if(p->state != RUNNABLE){
         continue;
-
+      }
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
@@ -370,6 +452,9 @@ scheduler(void)
     release(&ptable.lock);
 
   }
+  //-----------------PATCH----------------TASK-3.2---//
+  #endif
+  //-----------------PATCH----------------TASK-3.2---//
 }
 
 // Enter scheduler.  Must hold only ptable.lock
@@ -398,7 +483,13 @@ yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
   proc->state = RUNNABLE;
-  proc->quanta = 0;
+//-----------------PATCH----------------TASK--3.2--//
+#if defined(FRR) || defined(FCFS)
+    queue[procInIndex % NPROC] = proc;
+    procInIndex++;
+    proc->quanta = 0;
+#endif
+//-----------------PATCH----------------TASK--3.2--//    
   sched();
   release(&ptable.lock);
 }
@@ -459,7 +550,7 @@ sleep(void *chan, struct spinlock *lk)
   // Go to sleep.
   proc->chan = chan;
   proc->state = SLEEPING;
-  proc->quanta = ;
+  proc->quanta = 0;
   sched();
 
   // Tidy up.
@@ -480,10 +571,18 @@ wakeup1(void *chan)
 {
   struct proc *p;
 
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->state == SLEEPING && p->chan == chan)
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->state == SLEEPING && p->chan == chan){
       p->state = RUNNABLE;
-}
+      //-----------------PATCH----------------TASK--3.2--//
+#if defined(FRR) || defined(FCFS)
+      queue[procInIndex % NPROC] = p;
+      procInIndex++;
+#endif
+      //-----------------PATCH----------------TASK--3.2--//
+    }
+  }
+}  
 
 // Wake up all processes sleeping on chan.
 void
@@ -507,8 +606,15 @@ kill(int pid)
     if(p->pid == pid){
       p->killed = 1;
       // Wake process from sleep if necessary.
-      if(p->state == SLEEPING)
+      if(p->state == SLEEPING){
         p->state = RUNNABLE;
+	//-----------------PATCH----------------TASK--3.2--//
+#if defined(FRR) || defined(FCFS)
+	queue[procInIndex % NPROC] = p;
+	procInIndex++;
+#endif
+	//-----------------PATCH----------------TASK--3.2--//
+      }
       release(&ptable.lock);
       return 0;
     }

@@ -22,7 +22,7 @@ static struct {
   struct spinlock lock;
   int locking;
 } cons;
-//bob is NOT a poop head but he is a seal.
+
 static void
 printint(int xx, int base, int sign)
 {
