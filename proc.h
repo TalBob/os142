@@ -75,6 +75,7 @@ struct proc {
   int iotime;	               // Total waiting for I/O
   int rtime;	               // Running time
   int quanta;	   	       // time quanta
+  int priority;		       // 1 = HIGH, 2 = MED, 3 = LOW
   
 //------------PATCH------------------------------------------//  
 };

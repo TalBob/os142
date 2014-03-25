@@ -60,6 +60,7 @@ found:
   p->etime = -1;
   p->quanta = 0;
   p->ctime = getCurrentTick();
+  p->priority = 2;
   
 //-----------------PATCH-----------------TASK---//
   p->state = EMBRYO;
@@ -373,8 +374,8 @@ scheduler(void)
   for(;;){
     
     //////////////
-    queue[procInIndex % NPROC] = initproc;
-    procInIndex++;
+   // queue[procInIndex % NPROC] = initproc;
+    //procInIndex++;
     /////////////
     
     // Enable interrupts on this processor.
@@ -382,7 +383,7 @@ scheduler(void)
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    int i = procInIndex - procOutIndex;
+//     int i = procInIndex - procOutIndex;
     
     
     //if (x++<3)
@@ -391,16 +392,16 @@ scheduler(void)
     //  panic("!");
     if(procInIndex != procOutIndex){
 	
-	for(p = queue[procOutIndex % NPROC]; i > 0; i--, p++){
-	  if(p->state != RUNNABLE){
-	    //cprintf("process: %s; NOT RUNNABLE\n",p->name);
-	    continue;
-	  }
+// 	for(p = queue[procOutIndex % NPROC]; i >= 0; i--, p++){
+// 	  if(p->state != RUNNABLE){
+// 	    //cprintf("process: %s; NOT RUNNABLE\n",p->name);
+// 	    continue;
+// 	  }
 	  //cprintf("process: %s;\n",p->name);
-
 	  // Switch to chosen process.  It is the process's job
 	  // to release ptable.lock and then reacquire it
 	  // before jumping back to us.
+	  p = queue[procOutIndex % NPROC];
 	  proc = p;
 	  switchuvm(p);
 	  p->state = RUNNING;
@@ -412,10 +413,11 @@ scheduler(void)
 	  // Process is done running for now.
 	  // It should have changed its p->state before coming back.
 	  proc = 0;
-	}
+// 	}
     }
     else{
-	queue[procInIndex] = initproc;
+	cprintf("out in else: %d \n", procOutIndex);
+	queue[procInIndex % NPROC] = initproc;
     }
     release(&ptable.lock);
     
@@ -483,6 +485,7 @@ yield(void)
 //-----------------PATCH----------------TASK--3.2--//
 #if defined(FRR) || defined(FCFS)
     queue[procInIndex % NPROC] = proc;
+    procInIndex++;
     proc->quanta = 0;
 #endif
 //-----------------PATCH----------------TASK--3.2--//    
@@ -567,8 +570,8 @@ wakeup1(void *chan)
 {
   struct proc *p;
 
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->state == SLEEPING && p->chan == chan)
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->state == SLEEPING && p->chan == chan){
       p->state = RUNNABLE;
       //-----------------PATCH----------------TASK--3.2--//
 #if defined(FRR) || defined(FCFS)
@@ -576,7 +579,9 @@ wakeup1(void *chan)
       procInIndex++;
 #endif
       //-----------------PATCH----------------TASK--3.2--//
-}
+    }
+  }
+}  
 
 // Wake up all processes sleeping on chan.
 void
