@@ -13,6 +13,48 @@ struct {
   struct proc proc[NPROC];
 } ptable;
 
+//-----------------PATCH----------------TASK-3.2---//
+
+struct queue{
+  int begin, end;
+  struct proc* processQueue[NPROC +1];
+}Que = {0, 0};
+
+// struct queue Que;
+// 
+// Que.begin = 0;
+// Que.end =0;
+
+int 
+addProc2Q(struct proc *p)
+{
+   //cprintf("que.begin is: %d\n", Que.begin);
+   //cprintf("que.end is: %d\n", Que.end);
+  if(Que.begin == ((Que.end - 1 + NPROC +1) % (NPROC +1))){
+      return -1;
+  }
+  else{
+      Que.processQueue[Que.begin] = p;
+      Que.begin = (Que.begin+1) % (NPROC+1);
+  }
+  return 0;
+};
+
+struct proc *getTopProc(void)
+{
+  struct proc *p;
+  //cprintf("get que.begin is: %d\n", Que.begin);
+  //cprintf("get que.end is: %d\n", Que.end);
+  if (Que.end != Que.begin){
+    p = Que.processQueue[Que.end];
+    Que.end = (Que.end+1) % (NPROC+1);
+  }
+  
+  return p;
+};
+
+
+//-----------------PATCH----------------TASK--3.2--//
 static struct proc *initproc;
 
 int nextpid = 1;
@@ -40,13 +82,12 @@ allocproc(void)
 
   acquire(&ptable.lock);
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->state == UNUSED)
-      goto found;
+    if(p->state == UNUSED)      goto found;
   release(&ptable.lock);
   return 0;
 
 found:
-//-----------------PATCH----------------TASK----//
+//-----------------PATCH----------------TASK-----//
   p->rtime = 0;
   p->iotime = 0;
   p->etime = -1;
@@ -108,6 +149,13 @@ userinit(void)
   p->cwd = namei("/");
 
   p->state = RUNNABLE;
+  
+//-----------------PATCH----------------TASK-----//
+  #ifdef FRR
+  addProc2Q(p);
+  #endif
+//-----------------PATCH----------------TASK-----//
+  
 }
 
 // Grow current process's memory by n bytes.
@@ -164,6 +212,13 @@ fork(void)
  
   pid = np->pid;
   np->state = RUNNABLE;
+  
+//-----------------PATCH----------------TASK-----//
+  #ifdef FRR
+  addProc2Q(np);
+  #endif
+//-----------------PATCH----------------TASK-----//
+  
   safestrcpy(np->name, proc->name, sizeof(proc->name));
   return pid;
 }
@@ -341,13 +396,13 @@ void
 scheduler(void)
 {
   struct proc *p;
-
+  
   for(;;){
     // Enable interrupts on this processor.
     sti();
-
-    // Loop over process table looking for process to run.
     acquire(&ptable.lock);
+    #ifdef DEFAULT
+    // Loop over process table looking for process to run.
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state != RUNNABLE)
         continue;
@@ -365,6 +420,21 @@ scheduler(void)
       // It should have changed its p->state before coming back.
       proc = 0;
     }
+    #endif
+    
+    #ifdef FRR
+    // in case we are FIFO round robin - get the first process from queue "Que" and run it;
+    p = getTopProc();
+    proc = p;
+    switchuvm(p);
+    p->state = RUNNING;
+    swtch(&cpu->scheduler, proc->context);
+    switchkvm();
+
+    // Process is done running for now.
+    // It should have changed its p->state before coming back.
+    proc = 0;
+    #endif
     release(&ptable.lock);
 
   }
@@ -396,6 +466,13 @@ yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
   proc->state = RUNNABLE;
+  
+  //-----------------PATCH----------------TASK-----//
+  #ifdef FRR
+  addProc2Q(proc);
+  #endif
+//-----------------PATCH----------------TASK-----//
+  
   sched();
   release(&ptable.lock);
 }
@@ -477,8 +554,15 @@ wakeup1(void *chan)
   struct proc *p;
 
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->state == SLEEPING && p->chan == chan)
+    if(p->state == SLEEPING && p->chan == chan){
       p->state = RUNNABLE;
+      //-----------------PATCH----------------TASK-----//
+      #ifdef FRR
+      addProc2Q(p);
+      #endif
+      //-----------------PATCH----------------TASK-----//
+    }
+      
 }
 
 // Wake up all processes sleeping on chan.
@@ -503,8 +587,14 @@ kill(int pid)
     if(p->pid == pid){
       p->killed = 1;
       // Wake process from sleep if necessary.
-      if(p->state == SLEEPING)
+      if(p->state == SLEEPING){
         p->state = RUNNABLE;
+	//-----------------PATCH----------------TASK-----//
+	#ifdef FRR
+	addProc2Q(p);
+	#endif
+	//-----------------PATCH----------------TASK-----//
+      }
       release(&ptable.lock);
       return 0;
     }
