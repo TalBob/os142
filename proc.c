@@ -15,44 +15,9 @@ struct {
 
 //-----------------PATCH----------------TASK-3.2---//
 
-struct queue{
-  int begin, end;
-  struct proc* processQueue[NPROC +1];
-}Que = {0, 0};
-
-// struct queue Que;
-// 
-// Que.begin = 0;
-// Que.end =0;
-
-int 
-addProc2Q(struct proc *p)
-{
-   //cprintf("que.begin is: %d\n", Que.begin);
-   //cprintf("que.end is: %d\n", Que.end);
-  if(Que.begin == ((Que.end - 1 + NPROC +1) % (NPROC +1))){
-      return -1;
-  }
-  else{
-      Que.processQueue[Que.begin] = p;
-      Que.begin = (Que.begin+1) % (NPROC+1);
-  }
-  return 0;
-};
-
-struct proc *getTopProc(void)
-{
-  struct proc *p;
-  //cprintf("get que.begin is: %d\n", Que.begin);
-  //cprintf("get que.end is: %d\n", Que.end);
-  if (Que.end != Que.begin){
-    p = Que.processQueue[Que.end];
-    Que.end = (Que.end+1) % (NPROC+1);
-  }
-  
-  return p;
-};
-
+static struct proc* queue[NPROC];
+int procInIndex = 0;
+int procOutIndex = 0;
 
 //-----------------PATCH----------------TASK--3.2--//
 
@@ -76,7 +41,7 @@ pinit(void)
 // state required to run in the kernel.
 // Otherwise return 0.
 static struct proc*
-git (void)
+allocproc (void)
 {
   struct proc *p;
   char *sp;
@@ -152,6 +117,12 @@ userinit(void)
   p->cwd = namei("/");
 
   p->state = RUNNABLE;
+  //-----------------PATCH----------------TASK--3.2--//
+  #if defined(FRR)||defined(FCFS)
+  queue[procInIndex % NPROC] = p;
+  procInIndex++;
+  #endif
+  //-----------------PATCH----------------TASK--3.2--//
 }
 
 // Grow current process's memory by n bytes.
@@ -208,6 +179,13 @@ fork(void)
  
   pid = np->pid;
   np->state = RUNNABLE;
+//-----------------PATCH----------------TASK--3.2--//
+  #if defined(FRR)||defined(FCFS)
+    queue[procInIndex % NPROC] = np;
+    procInIndex++;
+  #endif;
+//-----------------PATCH----------------TASK--3.2--//
+      
   safestrcpy(np->name, proc->name, sizeof(proc->name));
   return pid;
 }
@@ -386,7 +364,42 @@ void
 scheduler(void)
 {
   struct proc *p;
+  //-----------------PATCH----------------TASK-3.2---//
+  #if defined(FRR)||defined(FCFS)
+  for(;;){
+    // Enable interrupts on this processor.
+    sti();
 
+    // Loop over process table looking for process to run.
+    acquire(&ptable.lock);
+    int i = procInIndex - procOutIndex;
+    
+    for(p = queue[procOutIndex % NPROC]; i >= 0; i--, p++){
+      if(p->state != RUNNABLE){
+        continue;
+      }
+
+      // Switch to chosen process.  It is the process's job
+      // to release ptable.lock and then reacquire it
+      // before jumping back to us.
+      proc = p;
+      switchuvm(p);
+      p->state = RUNNING;
+      queue[procOutIndex % NPROC] = 0;
+      procOutIndex++;
+      swtch(&cpu->scheduler, proc->context);
+      switchkvm();
+
+      // Process is done running for now.
+      // It should have changed its p->state before coming back.
+      proc = 0;
+    }
+    release(&ptable.lock);
+    
+  }
+  #endif
+  #if defined(DEFAULT)  
+  //-----------------PATCH----------------TASK-3.2---//
   for(;;){
     // Enable interrupts on this processor.
     sti();
@@ -413,6 +426,9 @@ scheduler(void)
     release(&ptable.lock);
 
   }
+  //-----------------PATCH----------------TASK-3.2---//
+  #endif
+  //-----------------PATCH----------------TASK-3.2---//
 }
 
 // Enter scheduler.  Must hold only ptable.lock
@@ -441,7 +457,12 @@ yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
   proc->state = RUNNABLE;
-  proc->quanta = 0;
+//-----------------PATCH----------------TASK--3.2--//
+#if defined(FRR) || defined(FCFS)
+    queue[procInIndex % NPROC] = proc;
+    proc->quanta = 0;
+#endif
+//-----------------PATCH----------------TASK--3.2--//    
   sched();
   release(&ptable.lock);
 }
@@ -526,6 +547,12 @@ wakeup1(void *chan)
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     if(p->state == SLEEPING && p->chan == chan)
       p->state = RUNNABLE;
+      //-----------------PATCH----------------TASK--3.2--//
+#if defined(FRR) || defined(FCFS)
+      queue[procInIndex % NPROC] = p;
+      procInIndex++;
+#endif
+      //-----------------PATCH----------------TASK--3.2--//
 }
 
 // Wake up all processes sleeping on chan.
@@ -550,8 +577,15 @@ kill(int pid)
     if(p->pid == pid){
       p->killed = 1;
       // Wake process from sleep if necessary.
-      if(p->state == SLEEPING)
+      if(p->state == SLEEPING){
         p->state = RUNNABLE;
+	//-----------------PATCH----------------TASK--3.2--//
+#if defined(FRR) || defined(FCFS)
+	queue[procInIndex % NPROC] = p;
+	procInIndex++;
+#endif
+	//-----------------PATCH----------------TASK--3.2--//
+      }
       release(&ptable.lock);
       return 0;
     }
