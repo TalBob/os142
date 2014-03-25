@@ -14,11 +14,11 @@ struct {
 } ptable;
 
 //-----------------PATCH----------------TASK-3.2---//
-
+#if defined(FRR) || defined(FCFS)
 static struct proc* queue[NPROC];
 int procInIndex = 0;
 int procOutIndex = 0;
-
+#endif
 //-----------------PATCH----------------TASK--3.2--//
 
 static struct proc *initproc;
@@ -183,7 +183,7 @@ fork(void)
   #if defined(FRR)||defined(FCFS)
     queue[procInIndex % NPROC] = np;
     procInIndex++;
-  #endif;
+  #endif
 //-----------------PATCH----------------TASK--3.2--//
       
   safestrcpy(np->name, proc->name, sizeof(proc->name));

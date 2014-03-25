@@ -36,6 +36,12 @@ idtinit(void)
 void
 trap(struct trapframe *tf)
 {
+   //--------------------PATCH---TASK 3.3-----------//
+  int fcfs = 0;
+#if defined(FCFS)
+  fcfs = 1;
+#endif
+  //--------------------PATCH---TASK 3.3-----------//
   if(tf->trapno == T_SYSCALL){
     if(proc->killed)
       exit();
@@ -106,7 +112,8 @@ trap(struct trapframe *tf)
   // Force process to give up CPU on clock tick.
   // If interrupts were on while locks held, would need to check nlock.
   if(proc && proc->state == RUNNING && tf->trapno == T_IRQ0+IRQ_TIMER){
-      if(proc->quanta % QUANTA == 0){
+      if(proc->quanta % QUANTA == 0 && !fcfs){
+// 	  cprintf("yielding!");
 	  yield();
       }
   }
