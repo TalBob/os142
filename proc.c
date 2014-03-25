@@ -119,8 +119,8 @@ userinit(void)
   p->state = RUNNABLE;
   //-----------------PATCH----------------TASK--3.2--//
   #if defined(FRR)||defined(FCFS)
-  queue[procInIndex % NPROC] = p;
-  procInIndex++;
+    queue[procInIndex % NPROC] = p;
+    procInIndex++;
   #endif
   //-----------------PATCH----------------TASK--3.2--//
 }
@@ -364,9 +364,19 @@ void
 scheduler(void)
 {
   struct proc *p;
+  
   //-----------------PATCH----------------TASK-3.2---//
   #if defined(FRR)||defined(FCFS)
+  //cprintf("IN is: %d\n",procInIndex);
+  //cprintf("Out is: %d\n",procOutIndex);
+  
   for(;;){
+    
+    //////////////
+    queue[procInIndex % NPROC] = initproc;
+    procInIndex++;
+    /////////////
+    
     // Enable interrupts on this processor.
     sti();
 
@@ -374,25 +384,38 @@ scheduler(void)
     acquire(&ptable.lock);
     int i = procInIndex - procOutIndex;
     
-    for(p = queue[procOutIndex % NPROC]; i >= 0; i--, p++){
-      if(p->state != RUNNABLE){
-        continue;
-      }
+    
+    //if (x++<3)
+    //  cprintf("in: %d\nout: %d\n",procInIndex,procOutIndex);
+    //else
+    //  panic("!");
+    if(procInIndex != procOutIndex){
+	
+	for(p = queue[procOutIndex % NPROC]; i > 0; i--, p++){
+	  if(p->state != RUNNABLE){
+	    //cprintf("process: %s; NOT RUNNABLE\n",p->name);
+	    continue;
+	  }
+	  //cprintf("process: %s;\n",p->name);
 
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
-      queue[procOutIndex % NPROC] = 0;
-      procOutIndex++;
-      swtch(&cpu->scheduler, proc->context);
-      switchkvm();
+	  // Switch to chosen process.  It is the process's job
+	  // to release ptable.lock and then reacquire it
+	  // before jumping back to us.
+	  proc = p;
+	  switchuvm(p);
+	  p->state = RUNNING;
+	  queue[procOutIndex % NPROC] = 0;
+	  procOutIndex++;
+	  swtch(&cpu->scheduler, proc->context);
+	  switchkvm();
 
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      proc = 0;
+	  // Process is done running for now.
+	  // It should have changed its p->state before coming back.
+	  proc = 0;
+	}
+    }
+    else{
+	queue[procInIndex] = initproc;
     }
     release(&ptable.lock);
     
@@ -407,9 +430,9 @@ scheduler(void)
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
+      if(p->state != RUNNABLE){
         continue;
-
+      }
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
