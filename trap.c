@@ -114,9 +114,12 @@ trap(struct trapframe *tf)
   if(proc && proc->state == RUNNING && tf->trapno == T_IRQ0+IRQ_TIMER){
     //--------------------PATCH---TASK 3.3-----------//
       if(proc->quanta % QUANTA == 0 && !fcfs){
-	//--------------------PATCH---TASK 3.3-----------//
-//  	  cprintf("yielding!");
+	//cprintf("what is my priority in trap?\n");
+	if(proc->priority != 3){
+	
 	  yield();
+	}
+	//--------------------PATCH---TASK 3.3-----------//
       }
   }
 

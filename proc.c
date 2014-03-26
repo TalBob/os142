@@ -14,10 +14,27 @@ struct {
 } ptable;
 
 //-----------------PATCH----------------TASK-3.2---//
-#if defined(FRR) || defined(FCFS)
+#if defined(SCHED_FRR) || defined(SCHED_FCFS)
 static struct proc* queue[NPROC];
 int procInIndex = 0;
 int procOutIndex = 0;
+#endif
+
+
+#if defined(SCHED_3Q)
+
+  static struct proc* queue1[NPROC];
+  int procInIndex1 = 0;
+  int procOutIndex1 = 0;
+
+  static struct proc* queue2[NPROC];
+  int procInIndex2 = 0;
+  int procOutIndex2 = 0;
+
+  static struct proc* queue3[NPROC];
+  int procInIndex3 = 0;
+  int procOutIndex3 = 0;
+
 #endif
 //-----------------PATCH----------------TASK--3.2--//
 
@@ -119,10 +136,29 @@ userinit(void)
 
   p->state = RUNNABLE;
   //-----------------PATCH----------------TASK--3.2--//
-  #if defined(FRR)||defined(FCFS)
+  #if defined(SCHED_FRR)||defined(SCHED_FCFS)
     queue[procInIndex % NPROC] = p;
     procInIndex++;
   #endif
+    #if defined(SCHED_3Q)
+    switch(p->priority){
+	case(1):
+	  queue1[procInIndex1 % NPROC] = p;
+	  procInIndex1++;
+	  
+	break;
+	case(2):
+	  queue2[procInIndex2 % NPROC] = p;
+	  procInIndex2++;
+	  
+	break;
+	case(3):
+	  queue3[procInIndex3 % NPROC] = p;
+	  procInIndex3++;
+	  
+	break;
+     }   
+    #endif
   //-----------------PATCH----------------TASK--3.2--//
 }
 
@@ -181,9 +217,29 @@ fork(void)
   pid = np->pid;
   np->state = RUNNABLE;
 //-----------------PATCH----------------TASK--3.2--//
-  #if defined(FRR)||defined(FCFS)
+  #if defined(SCHED_FRR)||defined(SCHED_FCFS)
     queue[procInIndex % NPROC] = np;
     procInIndex++;
+  #endif
+    
+  #if defined(SCHED_3Q)
+  switch(np->priority){
+      case(1):
+	queue1[procInIndex1 % NPROC] = np;
+	procInIndex1++;
+	
+      break;
+      case(2):
+	queue2[procInIndex2 % NPROC] = np;
+	procInIndex2++;
+	
+      break;
+      case(3):
+	queue3[procInIndex3 % NPROC] = np;
+	procInIndex3++;
+	
+      break;
+    }   
   #endif
 //-----------------PATCH----------------TASK--3.2--//
       
@@ -366,30 +422,79 @@ scheduler(void)
 {
   struct proc *p;
   
-  //-----------------PATCH----------------TASK-3.2---//
-  #if defined(FRR)||defined(FCFS)
-  //cprintf("IN is: %d\n",procInIndex);
-  //cprintf("Out is: %d\n",procOutIndex);
   
+//-----------------PATCH----------------TASK-3Q-3.4--//
+  
+  #if defined(SCHED_3Q)
+
   for(;;){
     
-    //////////////
-   // queue[procInIndex % NPROC] = initproc;
-    //procInIndex++;
-    /////////////
+    // Enable interrupts on this processor.
+    sti();
+    acquire(&ptable.lock);
+    // Loop over process table looking for process to run.
+//     acquire(&ptable.lock);
+    
+    if(procInIndex1 % NPROC != procOutIndex1 %NPROC){
+	  p = queue1[procOutIndex1 % NPROC];
+	  proc = p;
+	  switchuvm(p);
+	  p->state = RUNNING;
+	  queue1[procOutIndex1 % NPROC] = 0;
+	  procOutIndex1++;
+	  swtch(&cpu->scheduler, proc->context);
+	  switchkvm();
+
+	  // Process is done running for now.
+	  // It should have changed its p->state before coming back.
+	  proc = 0;
+    }
+    else if(procInIndex2 % NPROC != procOutIndex2 % NPROC){
+	  p = queue2[procOutIndex2 % NPROC];
+	  proc = p;
+	  switchuvm(p);
+// 	  cprintf("switchuvm!\n");
+	  p->state = RUNNING;
+// 	  cprintf("RUN!\n");
+	  queue2[procOutIndex2 % NPROC] = 0;
+	  procOutIndex2++;
+	  swtch(&cpu->scheduler, proc->context);
+	  switchkvm();
+// 	  cprintf("switchkvm!\n");
+
+	  // Process is done running for now.
+	  // It should have changed its p->state before coming back.
+	  proc = 0;
+	//queue[procInIndex % NPROC] = initproc;
+    }else if(procInIndex3 % NPROC != procOutIndex3 % NPROC){
+	  p = queue3[procOutIndex3 % NPROC];
+	  proc = p;
+	  switchuvm(p);
+	  p->state = RUNNING;
+	  queue3[procOutIndex3 % NPROC] = 0;
+	  procOutIndex3++;
+	  swtch(&cpu->scheduler, proc->context);
+	  switchkvm();
+
+	  // Process is done running for now.
+	  // It should have changed its p->state before coming back.
+	  proc = 0;
+    }
+    release(&ptable.lock);
+  }
+        
+  #endif
+  //-----------------PATCH----------------TASK-3Q---//
+
+  //-----------------PATCH----------------TASK-3.2---//
+  #if defined(SCHED_FRR)||defined(SCHED_FCFS)
+  for(;;){
     
     // Enable interrupts on this processor.
     sti();
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-//     int i = procInIndex - procOutIndex;
-    
-    
-    //if (x++<3)
-    //  cprintf("in: %d\nout: %d\n",procInIndex,procOutIndex);
-    //else
-    //  panic("!");
     if(procInIndex != procOutIndex){
 	
 // 	for(p = queue[procOutIndex % NPROC]; i >= 0; i--, p++){
@@ -397,7 +502,6 @@ scheduler(void)
 // 	    //cprintf("process: %s; NOT RUNNABLE\n",p->name);
 // 	    continue;
 // 	  }
-	  //cprintf("process: %s;\n",p->name);
 	  // Switch to chosen process.  It is the process's job
 	  // to release ptable.lock and then reacquire it
 	  // before jumping back to us.
@@ -416,14 +520,13 @@ scheduler(void)
 // 	}
     }
     else{
-	cprintf("out in else: %d \n", procOutIndex);
 	queue[procInIndex % NPROC] = initproc;
     }
     release(&ptable.lock);
     
   }
   #endif
-  #if defined(DEFAULT)  
+  #if defined(SCHED_DEFAULT)  
   //-----------------PATCH----------------TASK-3.2---//
   for(;;){
     // Enable interrupts on this processor.
@@ -483,12 +586,35 @@ yield(void)
   acquire(&ptable.lock);  //DOC: yieldlock
   proc->state = RUNNABLE;
 //-----------------PATCH----------------TASK--3.2--//
-#if defined(FRR) || defined(FCFS)
+#if defined(SCHED_FRR) || defined(SCHED_FCFS)
     queue[procInIndex % NPROC] = proc;
     procInIndex++;
-    proc->quanta = 0;
-#endif
+    #endif
+    #if defined(SCHED_3Q)
+    if((proc->quanta % QUANTA) == 0 && (proc->priority < 3)){ //proc finished all his quanta time.
+      proc->priority++;
+    }
+    switch(proc->priority){
+      case(1):
+	queue1[procInIndex1 % NPROC] = proc;
+	procInIndex1++;
+	
+      break;
+      case(2):
+	queue2[procInIndex2 % NPROC] = proc;
+	procInIndex2++;
+	
+      break;
+      case(3):
+	queue3[procInIndex3 % NPROC] = proc;
+	procInIndex3++;
+	
+      break;    
+    }
+    #endif
 //-----------------PATCH----------------TASK--3.2--//    
+  proc->quanta = 0;
+
   sched();
   release(&ptable.lock);
 }
@@ -574,10 +700,32 @@ wakeup1(void *chan)
     if(p->state == SLEEPING && p->chan == chan){
       p->state = RUNNABLE;
       //-----------------PATCH----------------TASK--3.2--//
-#if defined(FRR) || defined(FCFS)
+#if defined(SCHED_FRR) || defined(SCHED_FCFS)
       queue[procInIndex % NPROC] = p;
       procInIndex++;
 #endif
+    #if defined(SCHED_3Q)
+    if(p->priority > 1){ //proc is promoted to better line after sleep.
+      p->priority--;
+    }
+    switch(p->priority){
+	case(1):
+	  queue1[procInIndex1 % NPROC] = p;
+	  procInIndex1++;
+	  
+	break;
+	case(2):
+	  queue2[procInIndex2 % NPROC] = p;
+	  procInIndex2++;
+	  
+	break;
+	case(3):
+	  queue3[procInIndex3 % NPROC] = p;
+	  procInIndex3++;
+	  
+	break;
+     }   
+    #endif
       //-----------------PATCH----------------TASK--3.2--//
     }
   }
@@ -607,11 +755,33 @@ kill(int pid)
       // Wake process from sleep if necessary.
       if(p->state == SLEEPING){
         p->state = RUNNABLE;
-	//-----------------PATCH----------------TASK--3.2--//
-#if defined(FRR) || defined(FCFS)
+		//-----------------PATCH----------------TASK--3.2--//
+	#if defined(SCHED_FRR) || defined(SCHED_FCFS)
 	queue[procInIndex % NPROC] = p;
 	procInIndex++;
-#endif
+	#endif
+	#if defined(SCHED_3Q)
+	if(p->priority > 1){ //proc is promoted to better line after sleep.
+	  p->priority--;
+	}
+	switch(p->priority){ //proc is put in the currect queue
+	    case(1):
+	      queue1[procInIndex1 % NPROC] = p;
+	      procInIndex1++;
+	      
+	    break;
+	    case(2):
+	      queue2[procInIndex2 % NPROC] = p;
+	      procInIndex2++;
+	      
+	    break;
+	    case(3):
+	      queue3[procInIndex3 % NPROC] = p;
+	      procInIndex3++;
+	      
+	    break;
+	}   
+	#endif
 	//-----------------PATCH----------------TASK--3.2--//
       }
       release(&ptable.lock);
