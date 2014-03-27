@@ -251,7 +251,10 @@ consoleintr(int (*getc)(void))
     case UPARROW:
 	if(numOentries >=  MAX_HISTORY_LENGTH){ 
 	  if(input.w < input.rm){
-	    for(i=input.rm ; i>input.w; i--){
+	    for(i=input.e ; i<=input.rm; i++){
+		consputc(RIGHTARROW);
+	    }
+	    for(i=input.rm ; i>=input.w; i--){
 		consputc(BACKSPACE);
 	    }
 	    input.e = input.w;
@@ -277,7 +280,10 @@ consoleintr(int (*getc)(void))
 	else{
 	  if((hstryPos %  MAX_HISTORY_LENGTH) > 0){
 	    if(input.w < input.rm){
-	      for(i=input.rm ; i>input.w; i--){
+	      for(i=input.e ; i<=input.rm; i++){
+		consputc(RIGHTARROW);
+	      }
+	      for(i=input.rm ; i>=input.w; i--){
 		  consputc(BACKSPACE);
 	      }
 	      input.e = input.w;
